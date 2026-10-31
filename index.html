@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="EnvDeck — design .env.example schemas, compose .env files and audit drift across environments. Runs locally." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>EnvDeck</title>
+    <script>
+      // Apply the theme before first paint to avoid a flash.
+      try {
+        var saved = JSON.parse(localStorage.getItem('envdeck') || '{}').state
+        var theme = (saved && saved.theme) || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+        document.documentElement.dataset.theme = theme
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
