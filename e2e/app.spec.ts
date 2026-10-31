@@ -204,3 +204,37 @@ test('persists projects and plain values but not secrets by default', async ({ p
   stored = await page.evaluate(() => localStorage.getItem('envdeck') ?? '')
   expect(stored).toContain('postgres://secret@host/db')
 })
+
+test('shares the AI agent guide: copy, snippet, download, GitHub link', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  // Force the download fallback; the native save dialog cannot be driven headlessly.
+  await page.addInitScript(() => {
+    ;(window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker = undefined
+  })
+  await page.goto('/')
+  const guide = readFileSync(fileURLToPath(new URL('../docs/agents/ENVDECK.md', import.meta.url)), 'utf8')
+
+  await page.getByRole('button', { name: /Agent guide/ }).click()
+  const dialog = page.getByRole('dialog', { name: 'AI agent guide' })
+  await expect(dialog.getByLabel('Agent guide preview')).toContainText('EnvDeck schema rules')
+  await expect(dialog.getByRole('link', { name: 'View on GitHub' })).toHaveAttribute(
+    'href',
+    'https://github.com/m4x1m1l14n/envdeck/blob/main/docs/agents/ENVDECK.md',
+  )
+
+  await dialog.getByRole('button', { name: 'Copy guide' }).click()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(guide)
+
+  await dialog.getByRole('button', { name: 'Copy snippet' }).click()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('ENVDECK.md')
+
+  const download = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download ENVDECK.md' }).click()
+  const file = await download
+  expect(file.suggestedFilename()).toBe('ENVDECK.md')
+  expect(readFileSync(await file.path(), 'utf8')).toBe(guide)
+
+  // The same actions are on the Projects page.
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('Keep agents on-format')).toBeVisible()
+})

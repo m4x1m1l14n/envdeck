@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
+import { AgentGuideModal } from './components/AgentGuide'
 import { Header } from './components/Header'
+import { REPO_URL } from './lib/links'
 import { Toaster } from './components/Toaster'
 import { useStore } from './store'
 import { AuditView } from './views/AuditView'
@@ -43,8 +45,12 @@ export function App() {
         {view === 'audit' && <AuditView />}
       </main>
       <footer className="border-t border-line py-4 text-center font-mono text-[10px] uppercase tracking-[0.25em] text-faint">
-        EnvDeck · schema-driven env files · runs entirely in your browser
+        EnvDeck · schema-driven env files · runs entirely in your browser ·{' '}
+        <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-muted hover:text-accent">
+          GitHub
+        </a>
       </footer>
+      <AgentGuideModal />
       <Toaster />
     </div>
   )

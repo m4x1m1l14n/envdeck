@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { ArchiveRestore, CopyPlus, Download, FolderOpen, HardDrive, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { parseSchema } from '../../core'
+import { AgentGuidePanel } from '../components/AgentGuide'
 import { FileDrop } from '../components/FileDrop'
 import { toast } from '../components/Toaster'
 import { Button, Confirm, cx, Field, IconButton, Modal, Panel, Segmented } from '../components/ui'
@@ -114,7 +115,10 @@ export function ProjectsView() {
         </div>
       )}
 
-      <StorageNote />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AgentGuidePanel />
+        <StorageNote />
+      </div>
 
       {creating && <NewProjectModal onClose={() => setCreating(false)} />}
       {renaming && <RenameModal project={renaming} onClose={() => setRenaming(null)} />}

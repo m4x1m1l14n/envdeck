@@ -17,7 +17,6 @@ import {
   ExternalLink,
   Bot,
 } from 'lucide-react'
-import agentGuide from '../../../docs/agents/ENVDECK.md?raw'
 import {
   addGroup,
   describeType,
@@ -33,6 +32,7 @@ import {
   type GroupDef,
   type VariableDef,
 } from '../../core'
+import { openAgentGuide } from '../components/AgentGuide'
 import { CodeView } from '../components/CodeView'
 import { FileDrop } from '../components/FileDrop'
 import { toast } from '../components/Toaster'
@@ -421,11 +421,8 @@ function OutputPanel({
               <FileCode2 size={15} />
             </IconButton>
             <IconButton
-              label="Save AI agent guide (ENVDECK.md)"
-              onClick={async () => {
-                const r = await saveTextFile('ENVDECK.md', agentGuide)
-                if (r !== 'cancelled') toast('Saved ENVDECK.md — commit it next to .env.example')
-              }}
+              label="AI agent guide (ENVDECK.md)"
+              onClick={openAgentGuide}
             >
               <Bot size={15} />
             </IconButton>

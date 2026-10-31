@@ -1,4 +1,5 @@
-import { Moon, Sun, ShieldCheck, Undo2, Redo2 } from 'lucide-react'
+import { Bot, Moon, Sun, ShieldCheck, Undo2, Redo2 } from 'lucide-react'
+import { openAgentGuide } from './AgentGuide'
 import { useStore, type View } from '../store'
 import { cx, IconButton } from './ui'
 
@@ -50,7 +51,7 @@ export function Header() {
                 aria-current={active ? 'page' : undefined}
                 onClick={() => setView(t.view)}
                 className={cx(
-                  'relative flex items-baseline gap-2 px-4 py-2 text-sm font-bold uppercase tracking-[0.18em] whitespace-nowrap transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-35',
+                  'relative flex items-baseline gap-2 px-3 py-2 text-sm font-bold uppercase tracking-[0.18em] whitespace-nowrap transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-35',
                   active ? 'text-fg' : 'text-muted hover:text-fg',
                 )}
               >
@@ -72,7 +73,7 @@ export function Header() {
           {projects.length > 0 && (
             <select
               aria-label="Active project"
-              className="input mr-2 h-9 w-auto max-w-[14rem] py-1 font-mono text-xs"
+              className="input mr-2 h-9 w-auto max-w-[12rem] py-1 font-mono text-xs"
               value={activeProjectId ?? ''}
               onChange={(e) => (e.target.value ? openProject(e.target.value, view === 'projects' ? 'design' : undefined) : undefined)}
             >
@@ -91,6 +92,16 @@ export function Header() {
             <Redo2 size={17} />
           </IconButton>
           <div className="mx-2 h-6 w-px bg-line" />
+          <button
+            type="button"
+            onClick={openAgentGuide}
+            title="Guide for AI coding agents (ENVDECK.md)"
+            className="clip-corner-sm mr-1 flex h-9 items-center gap-2 border border-line-strong bg-surface-2 px-3 font-mono text-[10px] whitespace-nowrap uppercase tracking-[0.2em] text-muted transition-colors hover:border-accent-2 hover:text-accent-2 cursor-pointer"
+          >
+            <Bot size={14} />
+            <span className="hidden 2xl:inline">Agent guide</span>
+            <span className="sr-only 2xl:hidden">Agent guide</span>
+          </button>
           <button
             type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

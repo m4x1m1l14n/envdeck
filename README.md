@@ -134,7 +134,7 @@ Patterns are JavaScript regular expressions. Wrap them in double quotes. Backsla
 
 To use it in a project:
 
-1. Save it from **Design → 🤖** (or copy the file) as `ENVDECK.md` next to your `.env.example`.
+1. Get it from the **Agent guide** button in the app header (or the panel on the Projects page): **Copy guide**, **Download ENVDECK.md**, or [view it on GitHub](docs/agents/ENVDECK.md). Save it as `ENVDECK.md` next to your `.env.example`.
 2. Point your agent at it — for example, add to `AGENTS.md` / `CLAUDE.md` / `.cursorrules`:
 
    ```md
