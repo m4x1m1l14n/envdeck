@@ -95,6 +95,23 @@ body,
 body {
   margin: 0;
   background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Glows + grid live on a fixed, separately composited layer. Using
+ * `background-attachment: fixed` on body instead forces a full repaint on every
+ * scroll frame, which made the sticky header flicker.
+ */
+body::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  transform: translateZ(0);
   background-image:
     radial-gradient(1200px 600px at 85% -10%, var(--bg-glow-1), transparent 60%),
     radial-gradient(900px 600px at -10% 110%, var(--bg-glow-2), transparent 60%),
@@ -105,21 +122,21 @@ body {
     auto,
     40px 40px,
     40px 40px;
-  background-attachment: fixed;
-  color: var(--fg);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
 }
 
-/* CRT scanlines, dark theme only. */
+/* CRT scanlines, dark theme only, on their own compositor layer. */
 body::after {
   content: '';
   pointer-events: none;
   position: fixed;
   inset: 0;
   z-index: 100;
+  transform: translateZ(0);
   background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0 1px, transparent 1px 3px);
   opacity: var(--scanline-opacity);
+}
+:root[data-theme='light'] body::after {
+  display: none;
 }
 
 ::selection {
@@ -164,7 +181,6 @@ body::after {
 }
 .panel > .panel-inner {
   background: var(--surface);
-  backdrop-filter: blur(10px);
   clip-path: polygon(0 0, calc(100% - 13.5px) 0, 100% 13.5px, 100% 100%, 13.5px 100%, 0 calc(100% - 13.5px));
   height: 100%;
 }
@@ -243,19 +259,6 @@ body::after {
 }
 .animate-rise {
   animation: rise 220ms ease-out both;
-}
-
-@keyframes pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-.animate-pulse-dot {
-  animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

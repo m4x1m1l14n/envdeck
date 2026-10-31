@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
@@ -151,7 +151,7 @@ export function DesignView() {
           </div>
           <div className="flex flex-col">
             {sections.map(({ group, vars }) => (
-              <section key={group?.name ?? '__ungrouped'} id={group ? `group-${slug(group.name)}` : 'group-ungrouped'} className="border-b border-line last:border-b-0">
+              <section key={group?.name ?? '__ungrouped'} id={group ? `group-${slug(group.name)}` : 'group-ungrouped'} className="scroll-mt-24 border-b border-line last:border-b-0">
                 <div className="flex items-center gap-3 bg-surface-2/60 px-4 py-2">
                   <Layers size={14} className={group ? 'text-accent-2' : 'text-faint'} />
                   <div className="min-w-0 flex-1">
@@ -303,9 +303,17 @@ function GroupsPanel({
   const groupNames = new Set(schema.groups.map((g) => g.name))
   const ungroupedCount = schema.variables.filter((v) => v.group === null || !groupNames.has(v.group)).length
   const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const current = useCurrentSection(schema)
+  const itemClass = (id: string) =>
+    cx(
+      'relative flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1.5 text-left text-xs uppercase tracking-wider cursor-pointer transition-colors',
+      current === id ? 'text-accent-2' : 'hover:text-accent-2',
+    )
+  const marker = (id: string) =>
+    current === id && <span aria-hidden className="absolute top-1 bottom-1 left-0 w-[2px] bg-accent-2 shadow-[0_0_8px_var(--accent-2)]" />
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 xl:sticky xl:top-24 xl:self-start">
       <Panel
         kicker="Structure"
         title="Groups"
@@ -314,18 +322,30 @@ function GroupsPanel({
             <FolderPlus size={16} />
           </IconButton>
         }
-        bodyClassName="p-2"
+        bodyClassName="p-2 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto"
       >
         <ul className="flex flex-col">
           <li>
-            <button type="button" onClick={() => jump('group-ungrouped')} className="flex w-full items-center justify-between px-2 py-1.5 text-left text-xs uppercase tracking-wider text-muted hover:text-fg cursor-pointer">
+            <button
+              type="button"
+              onClick={() => jump('group-ungrouped')}
+              aria-current={current === 'group-ungrouped' ? 'location' : undefined}
+              className={cx(itemClass('group-ungrouped'), 'w-full', current !== 'group-ungrouped' && 'text-muted')}
+            >
+              {marker('group-ungrouped')}
               <span>Ungrouped</span>
               <span className="font-mono text-faint">{ungroupedCount}</span>
             </button>
           </li>
           {schema.groups.map((g, i) => (
             <li key={g.name} className="group flex items-center">
-              <button type="button" onClick={() => jump(`group-${slug(g.name)}`)} className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wider hover:text-accent-2 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => jump(`group-${slug(g.name)}`)}
+                aria-current={current === `group-${slug(g.name)}` ? 'location' : undefined}
+                className={cx(itemClass(`group-${slug(g.name)}`), 'font-semibold')}
+              >
+                {marker(`group-${slug(g.name)}`)}
                 <span className="truncate">{g.name}</span>
                 <span className="font-mono text-faint">{schema.variables.filter((v) => v.group === g.name).length}</span>
               </button>
@@ -351,6 +371,36 @@ function GroupsPanel({
 
     </div>
   )
+}
+
+/** Id of the variables section currently at the top of the viewport (scrollspy). */
+function useCurrentSection(schema: EnvSchema): string | null {
+  const [current, setCurrent] = useState<string | null>(null)
+  useEffect(() => {
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const sections = [...document.querySelectorAll<HTMLElement>('section[id^="group-"]')]
+      // The section whose top has passed just below the sticky header.
+      let id: string | null = sections[0]?.id ?? null
+      for (const el of sections) if (el.getBoundingClientRect().top <= 140) id = el.id
+      // At the very bottom, the last section wins even if it is short.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) id = sections.at(-1)?.id ?? id
+      setCurrent(id)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      cancelAnimationFrame(frame)
+    }
+  }, [schema])
+  return current
 }
 
 function HeaderPanel({ description, onChange }: { description: string; onChange(description: string): void }) {

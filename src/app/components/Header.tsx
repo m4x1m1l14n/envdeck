@@ -24,7 +24,7 @@ export function Header() {
   const openProject = useStore((s) => s.openProject)
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-[color-mix(in_srgb,var(--bg)_82%,transparent)] backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-line bg-[color-mix(in_srgb,var(--bg)_96%,transparent)] [transform:translateZ(0)]">
       <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           <Logo />
@@ -129,7 +129,7 @@ function Logo() {
       </defs>
       <path d="M4 4h44l12 12v44H16L4 48z" fill="var(--surface-2)" stroke="url(#logo-g)" strokeWidth="3" />
       <path d="M18 20h20M18 32h14M18 44h22" stroke="url(#logo-g)" strokeWidth="5" />
-      <rect x="44" y="40" width="6" height="8" fill="var(--accent-3)" className="animate-pulse-dot" />
+      <rect x="44" y="40" width="6" height="8" fill="var(--accent-3)" />
     </svg>
   )
 }

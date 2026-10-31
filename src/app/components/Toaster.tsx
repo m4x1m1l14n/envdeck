@@ -31,7 +31,7 @@ export function Toaster() {
           <div
             key={t.id}
             className={cx(
-              'clip-corner-sm animate-rise flex items-center gap-2 border-l-2 bg-surface-2 px-4 py-2.5 text-sm shadow-lg backdrop-blur',
+              'clip-corner-sm animate-rise flex items-center gap-2 border-l-2 bg-surface-2 px-4 py-2.5 text-sm shadow-lg',
               TONES[t.tone],
             )}
           >
