@@ -34,12 +34,13 @@ import {
 } from '../../core'
 import { openAgentGuide } from '../components/AgentGuide'
 import { CodeView } from '../components/CodeView'
-import { FileDrop } from '../components/FileDrop'
+import { FileDrop, useWindowFileDrop } from '../components/FileDrop'
 import { toast } from '../components/Toaster'
 import { Button, Chip, cx, EmptyHint, Field, IconButton, Modal, Panel, Segmented } from '../components/ui'
 import { exampleSchemaText as exampleText } from '../lib/example'
 import { copyText, saveTextFile } from '../lib/files'
 import { useSchema, useStore } from '../store'
+import { SchemaImportModal, type PendingImport } from './SchemaImport'
 import { VariableEditor } from './VariableEditor'
 
 type OutputTab = 'preview' | 'source' | 'issues'
@@ -53,11 +54,13 @@ export function DesignView() {
   const [editing, setEditing] = useState<{ variable: VariableDef | null; group: string | null } | null>(null)
   const [groupModal, setGroupModal] = useState<{ group: GroupDef | null } | null>(null)
   const [query, setQuery] = useState('')
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
 
   const text = useMemo(() => serializeSchema(schema), [schema])
   const lint = useMemo(() => parseSchema(text).diagnostics, [text])
 
   const isEmpty = schema.variables.length === 0 && schema.groups.length === 0
+  const dragging = useWindowFileDrop(!isEmpty && pendingImport === null, setPendingImport)
 
   const doImport = (source: string, label: string) => {
     const diags = importSchemaText(source)
@@ -197,7 +200,16 @@ export function DesignView() {
         </Panel>
       </div>
 
-      <OutputPanel text={text} lint={lint} importDiagnostics={importDiagnostics} onApply={(t) => doImport(t, 'source')} />
+      <OutputPanel
+        text={text}
+        lint={lint}
+        importDiagnostics={importDiagnostics}
+        onApply={(t) => doImport(t, 'source')}
+        onImportFile={setPendingImport}
+      />
+
+      {pendingImport && <SchemaImportModal pending={pendingImport} onClose={() => setPendingImport(null)} />}
+      {dragging && <DropOverlay />}
 
       {editing && <VariableEditor variable={editing.variable} initialGroup={editing.group} onClose={() => setEditing(null)} />}
       {groupModal && (
@@ -426,16 +438,30 @@ function HeaderPanel({ description, onChange }: { description: string; onChange(
   )
 }
 
+function DropOverlay() {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-bg/75 p-8">
+      <div className="glow flex flex-col items-center gap-3 border-2 border-dashed border-accent bg-surface-2 px-12 py-10 text-center">
+        <FileCode2 size={30} className="text-accent" />
+        <div className="text-sm font-bold uppercase tracking-[0.2em]">Drop .env.example</div>
+        <div className="text-xs text-muted">You'll review the changes before anything is replaced</div>
+      </div>
+    </div>
+  )
+}
+
 function OutputPanel({
   text,
   lint,
   importDiagnostics,
   onApply,
+  onImportFile,
 }: {
   text: string
   lint: Diagnostic[]
   importDiagnostics: Diagnostic[]
   onApply(text: string): void
+  onImportFile(file: PendingImport): void
 }) {
   const [tab, setTab] = useState<OutputTab>('preview')
   const [draft, setDraft] = useState<string | null>(null)
@@ -471,12 +497,14 @@ function OutputPanel({
             >
               <Copy size={15} />
             </IconButton>
-            <IconButton
-              label="Import .env.example"
+            <Button
+              size="sm"
+              icon={<FileCode2 size={14} />}
+              title="Update the schema from a .env.example file — or drop the file anywhere on this page"
               onClick={() => fileInput.current?.click()}
             >
-              <FileCode2 size={15} />
-            </IconButton>
+              Import
+            </Button>
             <IconButton
               label="AI agent guide (ENVDECK.md)"
               onClick={openAgentGuide}
@@ -505,7 +533,7 @@ function OutputPanel({
           data-testid="import-schema"
           onChange={async (e) => {
             const f = e.target.files?.[0]
-            if (f) onApply(await f.text())
+            if (f) onImportFile({ name: f.name, text: await f.text() })
             e.target.value = ''
           }}
         />

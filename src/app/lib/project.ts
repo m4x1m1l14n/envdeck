@@ -27,3 +27,14 @@ export function problemCount(schema: EnvSchema, env: Pick<Environment, 'values'>
   const values = effectiveValues(schema, env)
   return schema.variables.filter((v) => validateValue(v, values[v.key]).length > 0).length
 }
+
+/** Move stored values to new keys. `renames` maps new key → old key; keys without a stored value are skipped. */
+export function renameValues(values: Record<string, string>, renames: Record<string, string>): Record<string, string> {
+  const next = { ...values }
+  for (const [to, from] of Object.entries(renames)) {
+    if (!Object.prototype.hasOwnProperty.call(values, from)) continue
+    next[to] = values[from] as string
+    delete next[from]
+  }
+  return next
+}

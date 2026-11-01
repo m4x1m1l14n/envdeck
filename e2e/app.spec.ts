@@ -280,3 +280,36 @@ test('edits a group from its section header', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Save' }).click()
   await expect(page.locator('#group-server')).toContainText('used by every worker process in the cluster')
 })
+
+test('re-imports a changed .env.example with a preview and carries renamed values over', async ({ page }) => {
+  await loadExampleProject(page)
+  const updated = example('.env.example')
+    .toString()
+    .replace('max=100)\nDB_POOL_SIZE=10', 'max=15)\nDB_POOL_SIZE=10')
+    .replace('JWT_TTL=', 'JWT_EXPIRES_IN=')
+  await page.getByTestId('import-schema').setInputFiles({ name: '.env.example', mimeType: 'text/plain', buffer: Buffer.from(updated) })
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByTestId('diff-DB_POOL_SIZE')).toContainText('Becomes invalid in staging')
+  await expect(dialog.getByLabel('JWT_EXPIRES_IN renamed from')).toHaveValue('JWT_TTL')
+  await expect(dialog.getByTestId('diff-JWT_TTL')).toContainText('Renamed to JWT_EXPIRES_IN')
+  await dialog.getByRole('button', { name: 'Apply changes' }).click()
+
+  await expect(page.getByTestId('var-JWT_EXPIRES_IN')).toBeVisible()
+  await expect(page.getByTestId('var-JWT_TTL')).toHaveCount(0)
+  await nav(page, 'Environments')
+  await page.getByTestId('env-tab-staging').click()
+  await expect(page.getByLabel('JWT_EXPIRES_IN')).toHaveValue('3600')
+})
+
+test('accepts a .env.example dropped anywhere on Design', async ({ page }) => {
+  await loadExampleProject(page)
+  const text = example('.env.example').toString()
+  await page.evaluate((t) => {
+    const dt = new DataTransfer()
+    dt.items.add(new File([t], '.env.example', { type: 'text/plain' }))
+    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true, cancelable: true }))
+    window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }))
+  }, text)
+  await expect(page.getByRole('dialog')).toContainText('No changes')
+})
