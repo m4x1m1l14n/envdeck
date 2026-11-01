@@ -313,3 +313,18 @@ test('accepts a .env.example dropped anywhere on Design', async ({ page }) => {
   }, text)
   await expect(page.getByRole('dialog')).toContainText('No changes')
 })
+
+test('remembers the generated .env output settings across reloads', async ({ page }) => {
+  await loadExampleProject(page)
+  await nav(page, 'Environments')
+  await page.getByRole('radio', { name: 'Bare' }).click()
+  await page.getByRole('switch', { name: 'Empty optionals' }).click()
+  const output = page.getByLabel('Generated .env')
+  await expect(output).not.toContainText('# ━')
+  await expect(output).not.toContainText('ADMIN_EMAIL')
+
+  await page.reload()
+  await expect(page.getByRole('radio', { name: 'Bare' })).toBeChecked()
+  await expect(page.getByRole('switch', { name: 'Empty optionals' })).not.toBeChecked()
+  await expect(output).not.toContainText('ADMIN_EMAIL')
+})

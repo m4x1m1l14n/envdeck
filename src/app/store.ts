@@ -1,9 +1,17 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { emptySchema, parseSchema, type Diagnostic, type EnvSchema } from '../core'
+import { emptySchema, parseSchema, type Diagnostic, type EnvSchema, type GenerateOptions } from '../core'
 
 export type View = 'projects' | 'design' | 'environments' | 'audit'
 export type Theme = 'dark' | 'light'
+
+/** How the Environments view renders the generated `.env`. Remembered across reloads. */
+export interface EnvOutputPrefs {
+  comments: NonNullable<GenerateOptions['comments']>
+  includeUnsetOptional: boolean
+}
+
+export const DEFAULT_ENV_OUTPUT: EnvOutputPrefs = { comments: 'groups', includeUnsetOptional: true }
 
 /** A named set of values for one deployment target, e.g. "production". */
 export interface Environment {
@@ -38,6 +46,7 @@ const HISTORY_LIMIT = 100
 export interface State {
   view: View
   theme: Theme
+  envOutput: EnvOutputPrefs
   projects: Project[]
   activeProjectId: string | null
   activeEnvId: string | null
@@ -50,6 +59,7 @@ export interface State {
 
   setView(view: View): void
   setTheme(theme: Theme): void
+  setEnvOutput(patch: Partial<EnvOutputPrefs>): void
 
   createProject(input: {
     name: string
@@ -134,6 +144,7 @@ export const useStore = create<State>()(
       return {
         view: 'projects',
         theme: initialTheme(),
+        envOutput: DEFAULT_ENV_OUTPUT,
         projects: [],
         activeProjectId: null,
         activeEnvId: null,
@@ -144,6 +155,7 @@ export const useStore = create<State>()(
 
         setView: (view) => set({ view }),
         setTheme: (theme) => set({ theme }),
+        setEnvOutput: (patch) => set((s) => ({ envOutput: { ...s.envOutput, ...patch } })),
 
         createProject: ({ name, schema, environments = [], rememberSecrets = false }) => {
           const now = Date.now()
@@ -285,7 +297,8 @@ export const useStore = create<State>()(
   ),
 )
 
-export type PersistedState = Pick<State, 'view' | 'theme' | 'projects' | 'activeProjectId' | 'activeEnvId'>
+export type PersistedState = Pick<State, 'view' | 'theme' | 'projects' | 'activeProjectId' | 'activeEnvId'> &
+  Partial<Pick<State, 'envOutput'>>
 
 /**
  * What goes to localStorage: projects and UI preferences. Values of @sensitive
@@ -296,6 +309,7 @@ export function persistedState(s: PersistedState): PersistedState {
   return {
     view: s.view,
     theme: s.theme,
+    envOutput: s.envOutput,
     activeProjectId: s.activeProjectId,
     activeEnvId: s.activeEnvId,
     projects: s.projects.map((p) => (p.rememberSecrets ? p : withoutSecrets(p))),

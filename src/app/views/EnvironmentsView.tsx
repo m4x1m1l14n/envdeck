@@ -26,7 +26,6 @@ import {
   generateEnv,
   parseEnv,
   validateValue,
-  type GenerateOptions,
   type VariableDef,
 } from '../../core'
 import { CodeView } from '../components/CodeView'
@@ -239,8 +238,8 @@ function EnvironmentEditor({
   const removeEnvironment = useStore((s) => s.removeEnvironment)
   const removeEnvKeys = useStore((s) => s.removeEnvKeys)
 
-  const [comments, setComments] = useState<NonNullable<GenerateOptions['comments']>>('groups')
-  const [includeUnset, setIncludeUnset] = useState(true)
+  const { comments, includeUnsetOptional: includeUnset } = useStore((s) => s.envOutput)
+  const setEnvOutput = useStore((s) => s.setEnvOutput)
   const [maskOutput, setMaskOutput] = useState(true)
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -525,14 +524,14 @@ function EnvironmentEditor({
               ariaLabel="Comments"
               size="sm"
               value={comments}
-              onChange={setComments}
+              onChange={(c) => setEnvOutput({ comments: c })}
               options={[
                 { value: 'none', label: 'Bare' },
                 { value: 'groups', label: 'Groups' },
                 { value: 'full', label: 'Docs' },
               ]}
             />
-            <Switch checked={includeUnset} onChange={setIncludeUnset} label="Empty optionals" />
+            <Switch checked={includeUnset} onChange={(v) => setEnvOutput({ includeUnsetOptional: v })} label="Empty optionals" />
           </div>
           <CodeView label="Generated .env" text={output || '# (empty)\n'} maskKeys={maskOutput ? sensitiveKeys : undefined} className="max-h-[65vh] py-3" />
           {!ready && (

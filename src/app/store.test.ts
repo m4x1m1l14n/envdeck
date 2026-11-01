@@ -128,6 +128,11 @@ describe('persistence', () => {
     expect(on.projects[0]?.environments[0]?.values).toEqual({ APP_NAME: 'app', API_KEY: 'super-secret' })
   })
 
+  it('remembers the generated .env output settings', () => {
+    const envOutput = { comments: 'none' as const, includeUnsetOptional: false }
+    expect(persistedState({ ...base, envOutput, projects: [] }).envOutput).toEqual(envOutput)
+  })
+
   it('never writes secrets, audit files or history to localStorage', () => {
     state().createProject({ name: 'P', schema })
     const env = state().addEnvironment({ name: 'prod' })!
