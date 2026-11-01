@@ -15,6 +15,7 @@ import {
   Lock,
   Plus,
   RotateCcw,
+  Search,
   ShieldAlert,
   Trash2,
 } from 'lucide-react'
@@ -50,6 +51,7 @@ export function EnvironmentsView() {
   const setView = useStore((s) => s.setView)
   const setRememberSecrets = useStore((s) => s.setRememberSecrets)
   const [adding, setAdding] = useState(false)
+  const [filter, setFilter] = useState<FieldFilter>({ query: '', attention: false, hideDefaults: false })
 
   const schema = project.schema
   const env = project.environments.find((e) => e.id === activeEnvId) ?? project.environments[0] ?? null
@@ -121,7 +123,7 @@ export function EnvironmentsView() {
       </Panel>
 
       {env ? (
-        <EnvironmentEditor key={env.id} project={project} env={env} />
+        <EnvironmentEditor key={env.id} project={project} env={env} filter={filter} onFilter={setFilter} />
       ) : (
         <Panel>
           <EmptyHint icon={<KeyRound size={28} />} title="No environments yet">
@@ -210,7 +212,25 @@ function AddEnvironmentModal({ project, onClose }: { project: Project; onClose()
   )
 }
 
-function EnvironmentEditor({ project, env }: { project: Project; env: Environment }) {
+interface FieldFilter {
+  query: string
+  /** Only missing or invalid values. */
+  attention: boolean
+  /** Hide optional variables still at their schema default. */
+  hideDefaults: boolean
+}
+
+function EnvironmentEditor({
+  project,
+  env,
+  filter,
+  onFilter,
+}: {
+  project: Project
+  env: Environment
+  filter: FieldFilter
+  onFilter(f: FieldFilter): void
+}) {
   const schema = project.schema
   const setValue = useStore((s) => s.setEnvValue)
   const setValues = useStore((s) => s.setEnvValues)
@@ -224,6 +244,12 @@ function EnvironmentEditor({ project, env }: { project: Project; env: Environmen
   const [maskOutput, setMaskOutput] = useState(true)
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Fields edited since the filter last changed stay visible, so a row does not vanish while you type in it.
+  const [pinned, setPinned] = useState<Set<string>>(new Set())
+  const changeFilter = (f: FieldFilter) => {
+    setPinned(new Set())
+    onFilter(f)
+  }
 
   const ordered = useMemo(() => canonicalOrder(schema), [schema])
   const effective = useMemo(() => effectiveValues(schema, env), [schema, env])
@@ -261,11 +287,29 @@ function EnvironmentEditor({ project, env }: { project: Project; env: Environmen
     toast(targets.length ? `Generated ${targets.length} secret(s)` : 'No empty secrets to generate', targets.length ? 'ok' : 'info')
   }
 
+  const needsAttention = (v: VariableDef) => {
+    const st = states.get(v.key)?.state
+    return st === 'missing' || st === 'invalid'
+  }
+  const untouchedOptional = (v: VariableDef) => !v.required && !needsAttention(v) && (effective[v.key] ?? '') === v.default
+  const q = filter.query.trim().toLowerCase()
+  const visible = (v: VariableDef) =>
+    pinned.has(v.key) ||
+    ((q === '' || v.key.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)) &&
+      (!filter.attention || needsAttention(v)) &&
+      (!filter.hideDefaults || !untouchedOptional(v)))
+  const attentionCount = ordered.filter(needsAttention).length
+  const hiddenDefaults = ordered.filter(untouchedOptional).length
+  const shown = ordered.filter(visible).length
+  const filtering = q !== '' || filter.attention || filter.hideDefaults
+
   const groupNames = new Set(schema.groups.map((g) => g.name))
   const sections = [
     { name: null as string | null, description: '', vars: ordered.filter((v) => v.group === null || !groupNames.has(v.group)) },
     ...schema.groups.map((g) => ({ name: g.name as string | null, description: g.description, vars: ordered.filter((v) => v.group === g.name) })),
-  ].filter((s) => s.vars.length > 0)
+  ]
+    .map((s) => ({ ...s, vars: s.vars.filter(visible) }))
+    .filter((s) => s.vars.length > 0)
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
@@ -355,9 +399,71 @@ function EnvironmentEditor({ project, env }: { project: Project; env: Environmen
           </div>
         </Panel>
 
+        <div className="sticky top-16 z-30">
+          <Panel bodyClassName="p-0">
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+              <label className="relative min-w-[14rem] flex-1">
+                <Search size={14} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
+                <input
+                  className="input pl-9"
+                  placeholder="Filter by name or description…"
+                  value={filter.query}
+                  onChange={(e) => changeFilter({ ...filter, query: e.target.value })}
+                  aria-label="Filter values"
+                />
+              </label>
+              <Segmented
+                ariaLabel="Show"
+                size="sm"
+                value={filter.attention ? 'attention' : 'all'}
+                onChange={(v) => changeFilter({ ...filter, attention: v === 'attention' })}
+                options={[
+                  { value: 'all', label: 'All' },
+                  {
+                    value: 'attention',
+                    label: (
+                      <>
+                        Needs attention
+                        <span className={cx('px-1 text-[9px]', attentionCount ? 'bg-bad text-white' : 'bg-ok text-[#05060b]')}>{attentionCount}</span>
+                      </>
+                    ),
+                    title: 'Only missing or invalid values',
+                  },
+                ]}
+              />
+              <Switch
+                checked={filter.hideDefaults}
+                onChange={(hideDefaults) => changeFilter({ ...filter, hideDefaults })}
+                label="Hide untouched optionals"
+                description={`${hiddenDefaults} optional at default`}
+              />
+            </div>
+            {filtering && (
+              <div className="flex items-center justify-between border-t border-line px-4 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted">
+                <span>
+                  Showing {shown} of {ordered.length}
+                </span>
+                <button type="button" className="cursor-pointer hover:text-accent" onClick={() => changeFilter({ query: '', attention: false, hideDefaults: false })}>
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        {sections.length === 0 && (
+          <Panel>
+            <EmptyHint icon={<CircleCheck size={26} />} title={filter.attention && attentionCount === 0 ? 'All set' : 'No matches'}>
+              {filter.attention && attentionCount === 0
+                ? 'Nothing in this environment needs your attention.'
+                : 'No variables match the current filters.'}
+            </EmptyHint>
+          </Panel>
+        )}
+
         {sections.map((s) => (
           <Panel key={s.name ?? '__ungrouped'} kicker={s.name ? 'Group' : undefined} title={s.name ?? 'General'} bodyClassName="p-0">
-            {s.description && <p className="border-b border-line px-4 py-2 text-xs text-muted">{s.description}</p>}
+            {s.description && <p className="border-b border-line px-4 py-2 text-xs text-muted [overflow-wrap:anywhere]">{s.description}</p>}
             <ul>
               {s.vars.map((v) => (
                 <ValueField
@@ -374,7 +480,10 @@ function EnvironmentEditor({ project, env }: { project: Project; env: Environmen
                       return n
                     })
                   }
-                  onChange={(val) => setValue(env.id, v.key, val)}
+                  onChange={(val) => {
+                    if (filtering && !pinned.has(v.key)) setPinned((p) => new Set(p).add(v.key))
+                    setValue(env.id, v.key, val)
+                  }}
                 />
               ))}
             </ul>
@@ -487,47 +596,74 @@ function ValueField({
   const id = `value-${v.key}`
   const showError = state.state === 'invalid' || state.state === 'missing'
   return (
-    <li className="grid gap-3 border-t border-line/60 px-4 py-4 first:border-t-0 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-      <div className="min-w-0">
-        <label htmlFor={id} className="flex items-center gap-2">
-          {STATE_ICON[state.state]}
-          <span className="truncate font-mono text-sm font-semibold text-accent">{v.key}</span>
-          {v.sensitive && <Lock size={12} className="text-warn" aria-label="sensitive" />}
+    <li className="flex flex-col gap-2 border-t border-line/60 px-4 py-4 first:border-t-0" data-testid={`field-${v.key}`}>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {STATE_ICON[state.state]}
+        <label htmlFor={id} className="font-mono text-sm font-semibold break-all text-accent">
+          {v.key}
         </label>
-        <div className="mt-1 flex flex-wrap gap-1.5 pl-6">
-          {v.required ? <Chip tone="accent2">req</Chip> : <Chip>opt</Chip>}
-          <Chip tone="accent" verbatim>
-            {describeType(v.type)}
-          </Chip>
-          {v.docs && (
-            <a href={v.docs} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-[10px] text-muted hover:text-accent">
-              docs <ExternalLink size={10} />
-            </a>
-          )}
-        </div>
-        {v.description && <p className="mt-1.5 pl-6 text-xs text-muted">{v.description}</p>}
+        {v.sensitive && <Lock size={12} className="text-warn" aria-label="sensitive" />}
+        {v.required ? <Chip tone="accent2">req</Chip> : <Chip>opt</Chip>}
+        <Chip tone="accent" verbatim>
+          {describeType(v.type)}
+        </Chip>
+        {!v.required && value === v.default && <Chip title="Same as the schema default">default</Chip>}
+        {v.docs && (
+          <a href={v.docs} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-[10px] text-muted hover:text-accent">
+            docs <ExternalLink size={10} />
+          </a>
+        )}
       </div>
-      <div className="min-w-0">
-        <div className="flex gap-1">
-          <div className="min-w-0 flex-1">
-            <ValueInput id={id} v={v} value={value} reveal={revealed} invalid={showError} placeholder={v.example ?? (v.default || undefined)} onChange={onChange} />
-          </div>
-          {v.sensitive && v.type.name !== 'enum' && v.type.name !== 'boolean' && (
-            <IconButton label={revealed ? `Hide ${v.key}` : `Reveal ${v.key}`} className="h-[38px] w-9" onClick={onReveal}>
-              {revealed ? <EyeOff size={15} /> : <Eye size={15} />}
-            </IconButton>
-          )}
-          {CAN_GENERATE(v) && (
-            <IconButton label={`Generate ${v.key}`} className="h-[38px] w-9" onClick={() => onChange(generateSecret(v.type))}>
-              <Dices size={15} />
-            </IconButton>
-          )}
+      {v.description && <Description text={v.description} />}
+      <div className="flex gap-1">
+        <div className="min-w-0 flex-1">
+          <ValueInput id={id} v={v} value={value} reveal={revealed} invalid={showError} placeholder={v.example ?? (v.default || undefined)} onChange={onChange} />
         </div>
-        <p className={cx('mt-1 min-h-4 text-xs', showError ? 'text-bad' : 'text-faint')}>
-          {state.state === 'missing' ? 'Required' : state.state === 'invalid' ? state.message : v.example ? `e.g. ${v.example}` : ''}
+        {v.sensitive && v.type.name !== 'enum' && v.type.name !== 'boolean' && (
+          <IconButton label={revealed ? `Hide ${v.key}` : `Reveal ${v.key}`} className="h-[38px] w-9" onClick={onReveal}>
+            {revealed ? <EyeOff size={15} /> : <Eye size={15} />}
+          </IconButton>
+        )}
+        {CAN_GENERATE(v) && (
+          <IconButton label={`Generate ${v.key}`} className="h-[38px] w-9" onClick={() => onChange(generateSecret(v.type))}>
+            <Dices size={15} />
+          </IconButton>
+        )}
+      </div>
+      {(showError || v.example) && (
+        <p className={cx('text-xs', showError ? 'text-bad' : 'text-faint')}>
+          {state.state === 'missing' ? 'Required' : state.state === 'invalid' ? state.message : `e.g. ${v.example}`}
         </p>
-      </div>
+      )}
     </li>
+  )
+}
+
+const LONG_DESCRIPTION = 160
+
+/** Variable description: full width, `code` spans, long text collapsed to two lines. */
+function Description({ text }: { text: string }) {
+  const long = text.length > LONG_DESCRIPTION || text.split('\n').length > 2
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="text-xs leading-relaxed text-muted">
+      <p className={cx('whitespace-pre-line [overflow-wrap:anywhere]', long && !open && 'line-clamp-2')}>
+        {text.split(/(`[^`]+`)/g).map((part, i) =>
+          part.startsWith('`') && part.endsWith('`') && part.length > 2 ? (
+            <code key={i} className="border border-line bg-surface-3/60 px-1 font-mono text-[11px] text-fg">
+              {part.slice(1, -1)}
+            </code>
+          ) : (
+            part
+          ),
+        )}
+      </p>
+      {long && (
+        <button type="button" className="mt-0.5 cursor-pointer font-mono text-[10px] uppercase tracking-wider text-accent hover:underline" onClick={() => setOpen((o) => !o)}>
+          {open ? 'Less' : 'More'}
+        </button>
+      )}
+    </div>
   )
 }
 

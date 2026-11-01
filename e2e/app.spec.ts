@@ -238,3 +238,45 @@ test('shares the AI agent guide: copy, snippet, download, GitHub link', async ({
   await page.keyboard.press('Escape')
   await expect(page.getByText('Keep agents on-format')).toBeVisible()
 })
+
+test('filters environment values: search, needs attention, hide untouched optionals', async ({ page }) => {
+  await loadExampleProject(page)
+  await nav(page, 'Environments')
+  await page.getByTestId('env-tab-development').click()
+  const fields = page.locator('[data-testid^="field-"]')
+  await expect(fields).toHaveCount(11)
+
+  await page.getByLabel('Filter values').fill('jwt')
+  await expect(fields).toHaveCount(2)
+  await page.getByLabel('Filter values').fill('')
+
+  // development is missing DATABASE_URL and JWT_SECRET.
+  await page.getByRole('radio', { name: /Needs attention/ }).click()
+  await expect(fields).toHaveCount(2)
+  await expect(page.getByTestId('field-DATABASE_URL')).toBeVisible()
+
+  // A row being fixed stays visible while you type, even once it is valid.
+  await page.getByLabel('DATABASE_URL').first().fill('postgres://app@localhost/app')
+  await expect(page.getByTestId('field-DATABASE_URL')).toBeVisible()
+  await page.getByRole('button', { name: 'Generate JWT_SECRET' }).click()
+  await page.getByRole('radio', { name: /^All/ }).click()
+  await page.getByRole('radio', { name: /Needs attention/ }).click()
+  await expect(page.getByText('Nothing in this environment needs your attention.')).toBeVisible()
+
+  await page.getByRole('radio', { name: /^All/ }).click()
+  await page.getByRole('switch', { name: /Hide untouched optionals/ }).click()
+  // LOG_LEVEL, WORKER_COUNT, DB_POOL_SIZE, DB_SSL, JWT_TTL, ADMIN_EMAIL are optional and untouched.
+  await expect(fields).toHaveCount(5)
+  await expect(page.getByTestId('field-LOG_LEVEL')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Clear filters' }).click()
+  await expect(fields).toHaveCount(11)
+})
+
+test('edits a group from its section header', async ({ page }) => {
+  await loadExampleProject(page)
+  await page.getByRole('button', { name: 'Edit group Server' }).first().click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Description').fill('HTTP server settings, ports and public URLs used by every worker process in the cluster')
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('#group-server')).toContainText('used by every worker process in the cluster')
+})

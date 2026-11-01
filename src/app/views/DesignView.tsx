@@ -152,18 +152,25 @@ export function DesignView() {
           <div className="flex flex-col">
             {sections.map(({ group, vars }) => (
               <section key={group?.name ?? '__ungrouped'} id={group ? `group-${slug(group.name)}` : 'group-ungrouped'} className="scroll-mt-24 border-b border-line last:border-b-0">
-                <div className="flex items-center gap-3 bg-surface-2/60 px-4 py-2">
-                  <Layers size={14} className={group ? 'text-accent-2' : 'text-faint'} />
+                <div className="flex items-start gap-3 bg-surface-2/60 px-4 py-2">
+                  <Layers size={14} className={cx('mt-0.5 shrink-0', group ? 'text-accent-2' : 'text-faint')} />
                   <div className="min-w-0 flex-1">
-                    <span className={cx('text-xs font-bold uppercase tracking-[0.2em]', group ? 'text-accent-2' : 'text-muted')}>
+                    <div className={cx('text-xs font-bold uppercase tracking-[0.2em] [overflow-wrap:anywhere]', group ? 'text-accent-2' : 'text-muted')}>
                       {group ? group.name : 'Ungrouped'}
-                    </span>
-                    {group?.description && <span className="ml-3 truncate text-xs text-muted">{group.description}</span>}
+                    </div>
+                    {group?.description && <p className="mt-0.5 text-xs text-muted [overflow-wrap:anywhere]">{group.description}</p>}
                   </div>
-                  <span className="font-mono text-[10px] text-faint">{vars.length}</span>
-                  <IconButton label={`Add variable to ${group?.name ?? 'ungrouped'}`} onClick={() => setEditing({ variable: null, group: group?.name ?? null })}>
-                    <Plus size={15} />
-                  </IconButton>
+                  <span className="mt-0.5 font-mono text-[10px] text-faint">{vars.length}</span>
+                  <div className="-my-1.5 flex shrink-0">
+                    {group && (
+                      <IconButton label={`Edit group ${group.name}`} onClick={() => setGroupModal({ group })}>
+                        <Pencil size={13} />
+                      </IconButton>
+                    )}
+                    <IconButton label={`Add variable to ${group?.name ?? 'ungrouped'}`} onClick={() => setEditing({ variable: null, group: group?.name ?? null })}>
+                      <Plus size={15} />
+                    </IconButton>
+                  </div>
                 </div>
                 {vars.length === 0 ? (
                   <div className="px-4 py-4 text-xs text-faint">{q ? 'No matches.' : 'No variables yet.'}</div>
